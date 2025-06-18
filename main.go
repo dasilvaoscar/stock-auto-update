@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"stock-auto-update/pkg/sheets"
+	"stock-auto-update/pkg/crawler"
 )
 
 func main() {
@@ -42,10 +43,20 @@ func main() {
 	var processedCount, errorCount, updatedPVP, updatedDY int
 	startTime := time.Now()
 
+	crawlerInstance := crawler.NewInvestidorCrawler()
+
 	for i, ticker := range fiis {
 		if strings.TrimSpace(ticker) == "" {
 			continue
 		}
+
+		data, err := crawlerInstance.CrawlFii(ticker)
+
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("DATA", data.PVP)
 
 		fmt.Printf("📊 [%d/%d] Processando %s...\n", i+1, len(fiis), ticker)
 		processedCount++
