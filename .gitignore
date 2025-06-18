@@ -1,3 +1,27 @@
+# === Go specific ===
+# Binários compilados
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Arquivos de teste
+*.test
+coverage.out
+coverage.html
+
+# Arquivos de output do go
+*.out
+
+# Dependências
+vendor/
+
+# Go workspace
+go.work
+go.work.sum
+
+# === Python specific (legacy) ===
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
