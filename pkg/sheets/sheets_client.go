@@ -11,24 +11,20 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-// SheetsClient encapsula as operações com Google Sheets
 type SheetsClient struct {
 	service       *sheets.Service
 	spreadsheetID string
 	config        *Config
 }
 
-// NewSheetsClient cria um novo cliente para Google Sheets
 func NewSheetsClient(config *Config) (*SheetsClient, error) {
 	ctx := context.Background()
 	
-	// Ler o arquivo de credenciais
 	credentialsJSON, err := ioutil.ReadFile(config.CredentialsFile)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler arquivo de credenciais: %v", err)
 	}
 
-	// Configurar as credenciais
 	credentials, err := google.JWTConfigFromJSON(credentialsJSON, 
 		"https://www.googleapis.com/auth/spreadsheets",
 		"https://www.googleapis.com/auth/drive")
@@ -38,7 +34,6 @@ func NewSheetsClient(config *Config) (*SheetsClient, error) {
 
 	client := credentials.Client(ctx)
 	
-	// Criar o serviço do Sheets
 	service, err := sheets.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
 		return nil, fmt.Errorf("erro ao criar serviço do Sheets: %v", err)
@@ -51,14 +46,11 @@ func NewSheetsClient(config *Config) (*SheetsClient, error) {
 	}, nil
 }
 
-// SetSpreadsheetID define o ID da planilha
 func (sc *SheetsClient) SetSpreadsheetID(spreadsheetID string) {
 	sc.spreadsheetID = spreadsheetID
 }
 
-// GetColumnValues retorna todos os valores de uma coluna
 func (sc *SheetsClient) GetColumnValues(sheetName string, column int) ([]string, error) {
-	// Converter número da coluna para letra (A=1, B=2, etc.)
 	columnLetter := columnNumberToLetter(column)
 	
 	readRange := fmt.Sprintf("%s!%s:%s", sheetName, columnLetter, columnLetter)
@@ -80,9 +72,7 @@ func (sc *SheetsClient) GetColumnValues(sheetName string, column int) ([]string,
 	return values, nil
 }
 
-// UpdateCell atualiza uma célula específica
 func (sc *SheetsClient) UpdateCell(sheetName string, row, col int, value interface{}) error {
-	// Converter número da coluna para letra
 	columnLetter := columnNumberToLetter(col)
 	
 	cellRange := fmt.Sprintf("%s!%s%d", sheetName, columnLetter, row)
@@ -113,11 +103,9 @@ func (sc *SheetsClient) UpdateCell(sheetName string, row, col int, value interfa
 	return nil
 }
 
-// GetFIIs retorna a lista de FIIs da planilha
 func (sc *SheetsClient) GetFIIs(sheetName string) ([]string, error) {
 	values, err := sc.GetColumnValues(sheetName, 1)
 
-	
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +114,6 @@ func (sc *SheetsClient) GetFIIs(sheetName string) ([]string, error) {
 		return []string{}, nil
 	}
 
-	// Filtrar valores vazios
 	var fiis []string
 	for _, fii := range values[sc.config.FIIsStartIndex:] {
 		trimmed := strings.TrimSpace(fii)
@@ -138,7 +125,6 @@ func (sc *SheetsClient) GetFIIs(sheetName string) ([]string, error) {
 	return fiis, nil
 }
 
-// GetIndexByValue encontra o índice de um valor em uma coluna específica
 func (sc *SheetsClient) GetIndexByValue(sheetName string, column int, searchValue string) (int, error) {
 	values, err := sc.GetColumnValues(sheetName, column)
 	if err != nil {
@@ -147,14 +133,13 @@ func (sc *SheetsClient) GetIndexByValue(sheetName string, column int, searchValu
 
 	for i, value := range values {
 		if strings.TrimSpace(value) == strings.TrimSpace(searchValue) {
-			return i + 1, nil // +1 porque as planilhas são 1-indexed
+			return i + 1, nil
 		}
 	}
 
 	return 0, fmt.Errorf("valor '%s' não encontrado na coluna %d", searchValue, column)
 }
 
-// BatchUpdate atualiza múltiplas células de uma vez
 func (sc *SheetsClient) BatchUpdate(updates []BatchUpdateRequest) error {
 	if len(updates) == 0 {
 		return nil
@@ -186,7 +171,6 @@ func (sc *SheetsClient) BatchUpdate(updates []BatchUpdateRequest) error {
 	return nil
 }
 
-// BatchUpdateRequest representa uma solicitação de atualização em lote
 type BatchUpdateRequest struct {
 	SheetName string
 	Row       int
@@ -194,11 +178,10 @@ type BatchUpdateRequest struct {
 	Value     interface{}
 }
 
-// columnNumberToLetter converte um número de coluna para letra (1=A, 2=B, etc.)
 func columnNumberToLetter(column int) string {
 	result := ""
 	for column > 0 {
-		column-- // Ajustar para base 0
+		column--
 		result = string(rune('A'+column%26)) + result
 		column /= 26
 	}

@@ -1,29 +1,34 @@
 package sheets
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
-// Config contém todas as configurações do aplicativo
 type Config struct {
-	// Google Sheets
 	CredentialsFile string
 	SpreadsheetID   string
 	SheetName       string
 	
-	// Colunas
 	PVPColumn       int
 	DYColumn        int
 	FIIsStartIndex  int
 	
-	// Yahoo Finance
-	RequestTimeout  int // em segundos
-	RequestDelay    int // em segundos, delay entre requests
+	RequestTimeout  int
+	RequestDelay    int
 }
 
-// DefaultConfig retorna a configuração padrão
-func DefaultConfig() *Config {
+func GetConfigs() *Config {
 	spreadsheetID := os.Getenv("SPREADSHEET_ID")
 
-	return &Config{
+	if spreadsheetID == "" {
+		fmt.Println("ERRO: ID da planilha não definido!")
+		fmt.Println("Defina a variável de ambiente SPREADSHEET_ID ou edite o arquivo config.go")
+		fmt.Println("Exemplo: export SPREADSHEET_ID=\"1A2B3C4D5E6F7G8H9I0J\"")
+		os.Exit(1)
+	}
+
+	config := &Config{
 		CredentialsFile: "credentials.json",
 		SpreadsheetID:  	spreadsheetID,
 		SheetName:       "Testes",
@@ -33,4 +38,6 @@ func DefaultConfig() *Config {
 		RequestTimeout:  30,
 		RequestDelay:    1,
 	}
+
+	return config
 }

@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
+
 	"github.com/joho/godotenv"
 
 	"stock-auto-update/pkg/sheets"
@@ -14,18 +14,7 @@ import (
 func main() {
 	godotenv.Load()
 
-	config := sheets.DefaultConfig()
-	
-	if spreadsheetID := os.Getenv("SPREADSHEET_ID"); spreadsheetID != "" {
-		config.SpreadsheetID = spreadsheetID
-	}
-	
-	if config.SpreadsheetID == "" {
-		fmt.Println("ERRO: ID da planilha não definido!")
-		fmt.Println("Defina a variável de ambiente SPREADSHEET_ID ou edite o arquivo config.go")
-		fmt.Println("Exemplo: export SPREADSHEET_ID=\"1A2B3C4D5E6F7G8H9I0J\"")
-		os.Exit(1)
-	}
+	config := sheets.GetConfigs()
 
 	fmt.Println("🚀 Iniciando Stock Auto Update em Go...")
 	fmt.Printf("📊 Planilha ID: %s\n", config.SpreadsheetID)
@@ -61,7 +50,7 @@ func main() {
 		fmt.Printf("📊 [%d/%d] Processando %s...\n", i+1, len(fiis), ticker)
 		processedCount++
 	}
-	
+
 	fmt.Println("---")
 	duration := time.Since(startTime)
 	fmt.Println("🎉 Processamento concluído!")
@@ -71,7 +60,7 @@ func main() {
 	fmt.Printf("   • DY atualizados: %d\n", updatedDY)
 	fmt.Printf("   • Erros: %d\n", errorCount)
 	fmt.Printf("   • Tempo total: %v\n", duration.Round(time.Second))
-	
+
 	if errorCount > 0 {
 		fmt.Printf("⚠️ %d erros ocorreram durante o processamento\n", errorCount)
 	}
