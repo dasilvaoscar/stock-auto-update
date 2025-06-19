@@ -1,78 +1,97 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"log"
-	"strings"
-	"time"
+	"net/http"
+	"os"
+	"sort"
+	"strconv"
 
 	"github.com/joho/godotenv"
-
-	"stock-auto-update/pkg/sheets"
-	"stock-auto-update/pkg/crawler"
 )
 
 func main() {
 	godotenv.Load()
 
-	config := sheets.GetConfigs()
+	stock := getStockInformation("BBAS3")
+	fmt.Println("Test", stock)
+}
 
-	fmt.Println("🚀 Iniciando Stock Auto Update em Go...")
-	fmt.Printf("📊 Planilha ID: %s\n", config.SpreadsheetID)
-	fmt.Printf("📋 Aba: %s\n", config.SheetName)
+func getStockInformation(ticker string) *Stock {
+	uri := "www.alphavantage.co"
+	query := fmt.Sprintf("symbol=%s.SA&apikey=%s", ticker, os.Getenv("ALPHAVANTAGE_API_KEY_TEST"))
+	url := fmt.Sprintf("https://%s/query?function=TIME_SERIES_MONTHLY_ADJUSTED&%s", uri, query)
 
-	sheetsClient, err := sheets.NewSheetsClient(config)
-	if err != nil {
-		log.Fatalf("❌ Erro ao criar cliente do Sheets: %v", err)
+	response, err := http.Get(url)
+
+	if err != nil || response.StatusCode != 200 {
+		panic(response.StatusCode)
 	}
 
-	fmt.Println("📈 Buscando lista de FIIs...")
-	fiis, err := sheetsClient.GetFIIs(config.SheetName)
-	if err != nil {
-		log.Fatalf("❌ Erro ao obter FIIs: %v", err)
+	defer response.Body.Close()
+
+	var apiResponse AlphaVantageResponse
+	if err := json.NewDecoder(response.Body).Decode(&apiResponse); err != nil {
+		fmt.Printf("Erro ao decodificar o JSON: %v\n", err)
+		panic(err)
 	}
 
-	if len(fiis) == 0 {
-		fmt.Println("⚠️ Nenhum FII encontrado na planilha")
-		return
+	var D5YAmount float64 = 5
+
+	allDates := make([]string, 0, len(apiResponse.MonthlyAdjusted))
+
+	for date := range apiResponse.MonthlyAdjusted {
+		allDates = append(allDates, date)
 	}
-
-	fmt.Printf("✅ Encontrados %d FIIs para processar\n", len(fiis))
-	fmt.Println("---")
-
-	var processedCount, errorCount, updatedPVP, updatedDY int
-	startTime := time.Now()
-
-	crawlerInstance := crawler.NewInvestidorCrawler()
-
-	for i, ticker := range fiis {
-		if strings.TrimSpace(ticker) == "" {
-			continue
+	
+	sort.Sort(sort.Reverse(sort.StringSlice(allDates)))
+	
+	for i, date := range allDates {
+		if i >= 12 {
+			break
 		}
-
-		data, err := crawlerInstance.CrawlFii(ticker)
-
-		if err != nil {
-			panic(err)
-		}
-
-		fmt.Println("DATA", data.PVP)
-
-		fmt.Printf("📊 [%d/%d] Processando %s...\n", i+1, len(fiis), ticker)
-		processedCount++
+		
+		manthlyData := apiResponse.MonthlyAdjusted[date]
+		dividend := manthlyData.Divident
+		
+		dividendValue, _ := strconv.ParseFloat(dividend, 64)
+		
+		D5YAmount = D5YAmount + dividendValue
 	}
 
-	fmt.Println("---")
-	duration := time.Since(startTime)
-	fmt.Println("🎉 Processamento concluído!")
-	fmt.Printf("📊 Estatísticas:\n")
-	fmt.Printf("   • FIIs processados: %d\n", processedCount)
-	fmt.Printf("   • P/VP atualizados: %d\n", updatedPVP)
-	fmt.Printf("   • DY atualizados: %d\n", updatedDY)
-	fmt.Printf("   • Erros: %d\n", errorCount)
-	fmt.Printf("   • Tempo total: %v\n", duration.Round(time.Second))
+	var D5YPercentual float64 = (D5YAmount / 21.79) * 100
 
-	if errorCount > 0 {
-		fmt.Printf("⚠️ %d erros ocorreram durante o processamento\n", errorCount)
+	return &Stock{
+		Ticker: ticker,
+		D5Y:    D5YPercentual,
 	}
+}
+
+type Stock struct {
+	Ticker string
+	D5Y    float64
+}
+
+type AlphaVantageResponse struct {
+	MetaData        MetaData             `json:"Meta Data"`
+	MonthlyAdjusted map[string]DailyData `json:"Monthly Adjusted Time Series"`
+}
+
+type DailyData struct {
+	Open          string `json:"1. open"`
+	High          string `json:"2. high"`
+	Low           string `json:"3. low"`
+	Close         string `json:"4. close"`
+	AdjustedClose string `json:"5. adjusted close"`
+	Volume        string `json:"6. volume"`
+	Divident      string `json: "7. dividend amount"`
+}
+
+type MetaData struct {
+	Information   string `json:"1. Information"`
+	Symbol        string `json:"2. Symbol"`
+	LastRefreshed string `json:"3. Last Refreshed"`
+	OutputSize    string `json:"4. Output Size"`
+	TimeZone      string `json:"5. Time Zone"`
 }
